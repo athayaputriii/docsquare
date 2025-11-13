@@ -5,20 +5,37 @@ import qrcode from 'qrcode-terminal';
 import fs from 'fs';
 import path from 'path';
 
-import { TEMP_DIR, REPORT_DIR } from './config.js';
+import { TEMP_DIR, REPORT_DIR, TRANSCRIPT_DIR } from './config.js';
 import { transcribeAudio } from './speechToText.js';
 import { generateMedicalReport } from './langchainPipeline.js';
 import { saveTidyDocx } from './docxRenderer.js';
+import {
+  createSessionRecord,
+  updateSessionFields,
+  setSessionStatus,
+  createReportRecord,
+  updateReportRecord,
+  SessionStatus,
+  ReportStatus,
+} from './firebaseService.js';
 
 // --- Ensure directories exist ---
 fs.mkdirSync(TEMP_DIR, { recursive: true });
 fs.mkdirSync(REPORT_DIR, { recursive: true });
-const TRANSCRIPT_DIR = 'data/transcripts'; // <--- ADD THIS LINE
-fs.mkdirSync(TRANSCRIPT_DIR, { recursive: true }); // <--- AND THIS LINE
+fs.mkdirSync(TRANSCRIPT_DIR, { recursive: true });
 
 // --- Bot State ---
-// { user_phone_id: { name: "...", id: "..." } }
+// { user_phone_id: { name, id, sessionId, reportId } }
 const session_patients = {};
+
+const createSessionId = (userPhone) => `${userPhone}-${Date.now()}`;
+const createReportId = (sessionId) => `${sessionId}-report-${Date.now()}`;
+const nowIso = () => new Date().toISOString();
+const summarizeReport = (text) => {
+  if (!text) return null;
+  const clean = text.replace(/\s+/g, ' ').trim();
+  return clean.length > 300 ? `${clean.slice(0, 297)}...` : clean;
+};
 
 // --- Helper: Patient Info Parsing ---
 function _parse_patient_info(text) {
@@ -77,7 +94,17 @@ client.on('message', async (message) => {
       const { name, pid } = _parse_patient_info(message.body);
       
       if (name && pid) {
-        session_patients[user_phone] = { name, id: pid };
+        const sessionId = createSessionId(user_phone);
+        session_patients[user_phone] = { name, id: pid, sessionId, reportId: null };
+
+        await createSessionRecord({
+          sessionId,
+          userPhone: user_phone,
+          patientName: name,
+          patientId: pid,
+          status: SessionStatus.WAITING_AUDIO,
+        });
+
         await chat.sendMessage(
           `Patient info saved (one-time use).\n` +
           `- Name: *${name}*\n- ID: *${pid}*\n\n` +
@@ -104,6 +131,12 @@ client.on('message', async (message) => {
         return;
       }
 
+      const sessionId = patient.sessionId || createSessionId(user_phone);
+      session_patients[user_phone].sessionId = sessionId;
+      await setSessionStatus(sessionId, SessionStatus.TRANSCRIBING, {
+        lastMessageAt: nowIso(),
+      });
+
       await chat.sendMessage(
         `Audio received.\n` +
         `Patient: *${patient.name}* | ID: *${patient.id}*\n` +
@@ -122,6 +155,24 @@ client.on('message', async (message) => {
       
       const buffer = Buffer.from(media.data, 'base64');
       fs.writeFileSync(audio_path, buffer);
+      await updateSessionFields(sessionId, {
+        lastAudioLocalPath: audio_path,
+        lastAudioMimeType: media.mimetype || 'audio/ogg',
+      });
+
+      const reportId = patient.reportId || createReportId(sessionId);
+      if (!patient.reportId) {
+        patient.reportId = reportId;
+        await createReportRecord({
+          reportId,
+          sessionId,
+          status: ReportStatus.PENDING,
+          transcriptPath: null,
+          reportPath: null,
+          transcriptText: null,
+          reportText: null,
+        });
+      }
       
       // 2. Transcribe
       const transcript_text = await transcribeAudio(audio_path);
@@ -134,6 +185,14 @@ client.on('message', async (message) => {
         console.error('Failed to save transcript:', e);
         // Don't stop, just log the error
       }
+      await setSessionStatus(sessionId, SessionStatus.REPORT_GENERATING, {
+        transcriptLocalPath: transcript_path,
+      });
+      await updateReportRecord(patient.reportId, {
+        status: ReportStatus.GENERATING,
+        transcriptPath: transcript_path,
+        transcriptText: transcript_text,
+      });
 
       // 3. Generate Report
       await chat.sendMessage('Generating structured medical report...');
@@ -150,6 +209,16 @@ client.on('message', async (message) => {
           patientId: patient.id
       });
 
+      await updateReportRecord(patient.reportId, {
+        status: ReportStatus.COMPLETE,
+        reportPath: report_docx_path,
+        reportText: report_text,
+        summary: summarizeReport(report_text),
+      });
+      await setSessionStatus(sessionId, SessionStatus.COMPLETE, {
+        reportLocalPath: report_docx_path,
+      });
+
       // 5. Send DOCX
       const reportMedia = MessageMedia.fromFilePath(report_docx_path);
       await chat.sendMessage(reportMedia, {
@@ -162,8 +231,20 @@ client.on('message', async (message) => {
       // fs.unlinkSync(report_docx_path);
     }
 
-  } catch (e) {
+} catch (e) {
     console.error(`Error processing message for ${user_phone}:`, e);
+    const patient = session_patients[user_phone];
+    if (patient?.sessionId) {
+      await setSessionStatus(patient.sessionId, SessionStatus.ERROR, {
+        lastError: e.message,
+      });
+    }
+    if (patient?.reportId) {
+      await updateReportRecord(patient.reportId, {
+        status: ReportStatus.ERROR,
+        error: e.message,
+      });
+    }
     await chat.sendMessage(`An error occurred: ${e.message}`);
   }
 });
