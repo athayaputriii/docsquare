@@ -141,5 +141,6 @@ vite.config.ts.timestamp-*
 # Custom author
 .env
 .wwebjs_cache
+.wwebjs_auth
 data/
 node_modules/
