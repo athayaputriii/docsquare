@@ -15,18 +15,23 @@ const Navbar: React.FC<React.HTMLAttributes<HTMLElement>> = ({ className, ...pro
             </Link>
             <ul className="hidden lg:flex items-center gap-3">
                 <li>
-                    <Link href="/second-pages/about" className={`inline-flex items-center gap-2 rounded-full py-1 pr-3 pl-3 transition-all font-medium ${pathname === '/second-pages/about' ? 'text-surface-950 bg-surface-200' : 'text-surface-500 hover:text-surface-950 hover:bg-surface-200'}`}>
+                    <Link href="/about" className={`inline-flex items-center gap-2 rounded-full py-1 pr-3 pl-3 transition-all font-medium ${pathname === '/about' ? 'text-surface-950 bg-surface-200' : 'text-surface-500 hover:text-surface-950 hover:bg-surface-200'}`}>
                         About
                     </Link>
                 </li>
                 <li>
-                    <Link href="/second-pages/pricing" className={`inline-flex items-center gap-2 rounded-full py-1 pr-3 pl-3 transition-all font-medium ${pathname === '/second-pages/pricing' ? 'text-surface-950 bg-surface-200' : 'text-surface-500 hover:text-surface-950 hover:bg-surface-200'}`}>
+                    <Link href="/pricing" className={`inline-flex items-center gap-2 rounded-full py-1 pr-3 pl-3 transition-all font-medium ${pathname === '/pricing' ? 'text-surface-950 bg-surface-200' : 'text-surface-500 hover:text-surface-950 hover:bg-surface-200'}`}>
                         Pricing
                     </Link>
                 </li>
                 <li>
-                    <Link href="/second-pages/contact" className={`inline-flex items-center gap-2 rounded-full py-1 pr-3 pl-3 transition-all font-medium ${pathname === '/second-pages/contact' ? 'text-surface-950 bg-surface-200' : 'text-surface-500 hover:text-surface-950 hover:bg-surface-200'}`}>
+                    <Link href="/contact" className={`inline-flex items-center gap-2 rounded-full py-1 pr-3 pl-3 transition-all font-medium ${pathname === '/contact' ? 'text-surface-950 bg-surface-200' : 'text-surface-500 hover:text-surface-950 hover:bg-surface-200'}`}>
                         Contact
+                    </Link>
+                </li>
+                <li>
+                    <Link href="/dashboard" className={`inline-flex items-center gap-2 rounded-full py-1 pr-3 pl-3 transition-all font-medium ${pathname === '/dashboard' ? 'text-surface-950 bg-surface-200' : 'text-surface-500 hover:text-surface-950 hover:bg-surface-200'}`}>
+                        Dashboard
                     </Link>
                 </li>
             </ul>
