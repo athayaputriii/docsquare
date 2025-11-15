@@ -1,23 +1,26 @@
-'use client';
+import Hero from '@/components/Hero';
+import Features from '@/components/Features';
+import Solutions from '@/components/Solutions';
+import Steps from '@/components/Steps';
+import Testimonials from '@/components/Testimonials';
+import FAQ from '@/components/FAQ';
+import FooterWithCTA from '@/components/FooterWithCTA';
+import React from 'react';
 
-import AuthGate from '@/components/AuthGate';
-import SessionList from '@/components/SessionList';
-
-export default function DashboardPage() {
+export default function Home() {
   return (
-    <AuthGate>
-      <main>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h1 style={{ fontSize: '2rem', fontWeight: 600 }}>Session Overview</h1>
-            <p style={{ color: 'var(--muted)', marginTop: '0.5rem' }}>
-              Live feed of WhatsApp consultations flowing through the DocSquare bot.
-            </p>
-          </div>
-        </div>
-
-        <SessionList />
-      </main>
-    </AuthGate>
+    <>
+      <Hero />
+      <div className="container mx-auto px-4">
+        <section>
+          <Features />
+          <Solutions />
+          <Steps />
+          <Testimonials />
+          <FAQ className="mt-24 lg:mt-64 mb-24 lg:mb-64" />
+          <FooterWithCTA className="mt-24 lg:mt-64"/>
+        </section>
+      </div>
+    </>
   );
 }
