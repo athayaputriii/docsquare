@@ -1,6 +1,6 @@
 'use client';
 
-import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getApp, getApps, initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
@@ -11,21 +11,6 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
-
-function assertConfig() {
-  const missing = Object.entries(firebaseConfig)
-    .filter(([, value]) => !value)
-    .map(([key]) => key);
-
-  if (missing.length) {
-    console.warn(
-      `[firebase] Missing NEXT_PUBLIC config keys: ${missing.join(', ')}. ` +
-        'Check dashboard/.env.local before running the dashboard.',
-    );
-  }
-}
-
-assertConfig();
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
