@@ -1,7 +1,7 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Install root deps
+# Install root dependencies
 COPY package*.json ./
 RUN npm ci
 
