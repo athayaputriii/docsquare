@@ -17,8 +17,7 @@ FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/dashboard/node_modules ./dashboard/node_modules
 COPY . .
-RUN npm run build --prefix dashboard  # Next.js build
-# If backend needs transpile step, add another RUN here (e.g., npm run build)
+RUN npm run build --prefix dashboard
 
 # Final runtime image
 FROM node:20-alpine AS runner
