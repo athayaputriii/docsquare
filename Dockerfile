@@ -1,19 +1,28 @@
 FROM node:20-alpine AS base
 WORKDIR /app
 
+# Install root dependencies
 FROM base AS deps
-RUN npm install -g bun
-COPY package.json package-lock.json bun.lockb* ./
-RUN bun install --frozen-lockfile
+COPY package*.json ./
+RUN npm install
 
+# Install dashboard deps (if dashboard has its own package.json)
+WORKDIR /app/dashboard
+COPY dashboard/package*.json ./
+RUN npm install
+WORKDIR /app
+
+# Copy source and build
 FROM base AS builder
-RUN npm install -g bun
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/dashboard/node_modules ./dashboard/node_modules
 COPY . .
-RUN bun run build:dashboard
-RUN bun run build:server
+RUN npm run build --prefix dashboard  # Next.js build
+# If backend needs transpile step, add another RUN here (e.g., npm run build)
 
-FROM base AS runner
+# Final runtime image
+FROM node:20-alpine AS runner
+WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=builder /app /app
 EXPOSE 3000
