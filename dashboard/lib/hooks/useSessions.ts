@@ -8,7 +8,7 @@ import {
   orderBy,
   query,
 } from 'firebase/firestore';
-import { db } from '../firebase/client';
+import { getFirestoreDb } from '../firebase/client';
 import type { SessionDoc } from '../types';
 
 export function useSessions(limitDocs = 50) {
@@ -16,6 +16,12 @@ export function useSessions(limitDocs = 50) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const db = getFirestoreDb();
+    if (!db) {
+      setLoading(false);
+      return;
+    }
+
     const sessionsRef = collection(db, 'sessions');
     const q = query(sessionsRef, orderBy('updatedAt', 'desc'), limit(limitDocs));
 

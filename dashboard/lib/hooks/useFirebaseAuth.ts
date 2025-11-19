@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from '../firebase/client';
+import { getFirebaseAuth } from '../firebase/client';
 
 type AuthState = {
   user: User | null;
@@ -14,6 +14,12 @@ export function useFirebaseAuth(): AuthState {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const auth = getFirebaseAuth();
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
+
     const unsub = onAuthStateChanged(auth, (current) => {
       setUser(current);
       setLoading(false);
