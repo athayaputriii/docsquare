@@ -3,7 +3,7 @@
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase/client';
+import { getFirebaseAuth } from '@/lib/firebase/client';
 
 export function SignInForm() {
   const router = useRouter();
@@ -17,6 +17,10 @@ export function SignInForm() {
     setError(null);
     setLoading(true);
     try {
+      const auth = getFirebaseAuth();
+      if (!auth) {
+        throw new Error('Firebase is not configured. Check NEXT_PUBLIC_FIREBASE_* variables.');
+      }
       await signInWithEmailAndPassword(auth, email, password);
       router.replace('/');
     } catch (err) {
