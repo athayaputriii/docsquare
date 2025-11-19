@@ -1,28 +1,34 @@
-FROM node:20-alpine AS base
+FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Install root dependencies
-FROM base AS deps
+# Install root deps
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
-# Install dashboard deps (if dashboard has its own package.json)
+# Install dashboard deps
 WORKDIR /app/dashboard
 COPY dashboard/package*.json ./
-RUN npm install
+RUN npm ci
+
+# Copy the rest of the source
 WORKDIR /app
-
-# Copy source and build
-FROM base AS builder
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/dashboard/node_modules ./dashboard/node_modules
 COPY . .
-RUN npm run build --prefix dashboard
 
-# Final runtime image
+# Build the Next.js dashboard
+WORKDIR /app/dashboard
+RUN npm run build
+
+# Remove dev deps for smaller runtime
+WORKDIR /app
+RUN npm prune --omit=dev
+RUN cd dashboard && npm prune --omit=dev
+
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+
+# Copy everything from builder (app code + built dashboard + pruned node_modules)
 COPY --from=builder /app /app
+
 EXPOSE 3000
 CMD ["node", "index.js"]
