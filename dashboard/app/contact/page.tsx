@@ -1,5 +1,7 @@
-import { Navbar } from '@/components/Navbar';
-import { Footer } from '@/components/Footer';
+// import { Navbar } from '@/components/Navbar';
+// import { Footer } from '@/components/Footer';
+import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
 import { ContactHero } from '@/components/contact/Hero';
 import { ContactAddress } from '@/components/contact/Address';
 import { Textarea } from '@/components/ui/textarea';

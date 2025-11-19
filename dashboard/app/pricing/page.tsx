@@ -1,9 +1,9 @@
-import { Navbar } from '@/components/Navbar';
-import { Footer } from '@/components/Footer';
+import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
 import { PricingHero } from '@/components/pricing/Hero';
 import { PricingCompare } from '@/components/pricing/Compare';
 import { PricingTestimonials } from '@/components/pricing/Testimonials';
-import { FooterWithCTA } from '@/components/FooterWithCTA';
+import FooterWithCTA from '@/components/FooterWithCTA';
 
 export default function PricingPage() {
   return (

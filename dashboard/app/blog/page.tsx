@@ -1,6 +1,6 @@
-import { Navbar } from '@/components/Navbar';
-import { Footer } from '@/components/Footer';
-import { StaticCustomers } from '@/components/StaticCustomers';
+import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
+import StaticCustomers from '@/components/StaticCustomers';
 
 const posts = [
   { title: 'Shipping LangChain to WhatsApp', date: 'May 2024' },
