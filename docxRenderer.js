@@ -134,26 +134,41 @@ export async function saveTidyDocx({
   authorName = "Doctor Square",
   patientName = "Unknown",
   patientId = "Unknown",
+  consultationDate: consultationDateInput = null,
 }) {
-  // Extract consultation date from filename
+  // Prefer explicitly provided consultation date; fallback to filename
   let consultationDate = "[Date not available]";
-  const match = reportPath.match(/(\d{8})_\d{6}/);
-
-  if (match) {
+  if (consultationDateInput) {
     try {
-      const raw = match[1];
-      const date = new Date(
-        Number(raw.slice(0, 4)),
-        Number(raw.slice(4, 6)) - 1,
-        Number(raw.slice(6, 8))
-      );
-      consultationDate = date.toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-      });
-    } catch {
-      // ignore parsing errors
+      const d = new Date(consultationDateInput);
+      if (!isNaN(d.getTime())) {
+        consultationDate = d.toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "long",
+          year: "numeric",
+        });
+      }
+    } catch {}
+  }
+
+  if (consultationDate === "[Date not available]") {
+    const match = reportPath.match(/(\d{8})_\d{6}/);
+    if (match) {
+      try {
+        const raw = match[1];
+        const date = new Date(
+          Number(raw.slice(0, 4)),
+          Number(raw.slice(4, 6)) - 1,
+          Number(raw.slice(6, 8))
+        );
+        consultationDate = date.toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "long",
+          year: "numeric",
+        });
+      } catch {
+        // ignore parsing errors
+      }
     }
   }
 

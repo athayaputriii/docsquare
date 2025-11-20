@@ -269,7 +269,8 @@ client.on('message', async (message) => {
           reportPath: report_docx_path,
           authorName: "WA Bot User", // wweb.js doesn't provide user's name
           patientName: patient.name,
-          patientId: patient.id
+          patientId: patient.id,
+          consultationDate: new Date((message.timestamp || Math.floor(Date.now()/1000)) * 1000).toISOString()
       });
 
       await updateReportRecord(patient.reportId, {
