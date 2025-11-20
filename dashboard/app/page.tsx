@@ -24,10 +24,13 @@ export default function SinglePageDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [sort, setSort] = useState<"date" | "name" | "number">("date");
   const [query, setQuery] = useState("");
+  const [displayName, setDisplayName] = useState<string | null>(null);
 
   useEffect(() => {
     const t = localStorage.getItem("token");
+    const u = localStorage.getItem("username");
     if (t) setToken(t);
+    if (u) setDisplayName(u);
   }, []);
 
   async function login(e: React.FormEvent) {
@@ -42,10 +45,25 @@ export default function SinglePageDashboard() {
       if (!res.ok) throw new Error(`Login failed (${res.status})`);
       const json = await res.json();
       localStorage.setItem("token", json.token);
+      localStorage.setItem("username", json.username || username);
       setToken(json.token);
+      setDisplayName(json.username || username);
     } catch (e: any) {
       setError(e.message);
     }
+  }
+
+  async function logout() {
+    try {
+      if (token) {
+        await fetch(`${API_BASE}/api/logout`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+      }
+    } catch {}
+    localStorage.removeItem('token');
+    localStorage.removeItem('username');
+    setToken(null);
+    setDisplayName(null);
+    setFiles([]);
   }
 
   async function fetchFiles(signal?: AbortSignal) {
@@ -56,6 +74,12 @@ export default function SinglePageDashboard() {
         headers: { Authorization: `Bearer ${token}` },
         signal,
       });
+      if (res.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('username');
+        setToken(null);
+        throw new Error('Session expired. Please login again.');
+      }
       if (!res.ok) throw new Error(`Fetch files failed (${res.status})`);
       const json = await res.json();
       setFiles(json.data || []);
@@ -74,9 +98,60 @@ export default function SinglePageDashboard() {
     return () => { ac.abort(); clearInterval(t); };
   }, [token, sort, query]);
 
-  const rows = useMemo(() => {
-    return files;
-  }, [files]);
+  type Group = {
+    key: string;
+    patientName: string;
+    patientId: string;
+    patientNumber: number | null;
+    latestMtime: number;
+    items: FileItem[];
+  };
+
+  const groups = useMemo(() => {
+    // group by folder ("name_id")
+    const map = new Map<string, Group>();
+    for (const f of files) {
+      const g = map.get(f.folder) || {
+        key: f.folder,
+        patientName: f.patientName,
+        patientId: f.patientId,
+        patientNumber: f.patientNumber ?? null,
+        latestMtime: 0,
+        items: [],
+      };
+      g.items.push(f);
+      g.latestMtime = Math.max(g.latestMtime, f.mtime || 0);
+      map.set(f.folder, g);
+    }
+
+    // optional filter using current query (already applied server-side, but keep UI-side too)
+    let arr = Array.from(map.values());
+    const ql = (query || '').toLowerCase();
+    if (ql) {
+      arr = arr.filter((g) =>
+        g.patientName.toLowerCase().includes(ql) ||
+        g.patientId.toLowerCase().includes(ql) ||
+        g.items.some((it) => it.filename.toLowerCase().includes(ql))
+      );
+    }
+
+    // sort groups by selected mode
+    if (sort === 'name') {
+      arr.sort((a, b) => a.patientName.localeCompare(b.patientName));
+    } else if (sort === 'number') {
+      arr.sort((a, b) => (a.patientNumber || 0) - (b.patientNumber || 0));
+    } else {
+      // date: newest group (by latest file) first
+      arr.sort((a, b) => b.latestMtime - a.latestMtime);
+    }
+
+    // sort files inside each group by date (newest first)
+    for (const g of arr) {
+      g.items.sort((a, b) => b.mtime - a.mtime);
+    }
+
+    return arr;
+  }, [files, sort, query]);
 
   if (!token) {
     return (
@@ -102,6 +177,12 @@ export default function SinglePageDashboard() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-8">
       <div className="mx-auto max-w-6xl">
+        <div className="mb-4 flex items-center justify-end gap-2">
+          {displayName && (
+            <span className="text-xs text-slate-400">Signed in as {displayName}</span>
+          )}
+          <button onClick={logout} className="rounded bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-500">Logout</button>
+        </div>
         <header className="mb-6 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
           <h1 className="text-xl font-semibold text-white">Docsquare Files</h1>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -121,21 +202,31 @@ export default function SinglePageDashboard() {
         </header>
 
         {loading && <p className="text-sm text-slate-400">Loading…</p>}
-        {!loading && rows.length === 0 && (
+        {!loading && groups.length === 0 && (
           <p className="text-sm text-slate-400">No files found.</p>
         )}
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {rows.map((f, i) => (
-            <a key={i} href={`${API_BASE}${f.url}`} target="_blank" rel="noreferrer" className="block rounded-lg border border-slate-800 bg-slate-900/60 p-4 hover:border-cyan-700">
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-sm font-semibold text-white">{f.patientName}</p>
-                <span className="text-xs text-slate-400">{new Date(f.mtime).toLocaleString()}</span>
-              </div>
-              <p className="text-xs text-slate-400">ID: {f.patientId || '—'}</p>
-              <p className="mt-2 line-clamp-2 text-sm text-slate-200">{f.filename}</p>
-              <p className="mt-1 text-xs text-slate-500">{(f.size / 1024).toFixed(1)} KB</p>
-            </a>
+        <div className="grid gap-6 md:grid-cols-2">
+          {groups.map((g) => (
+            <section key={g.key} className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+              <header className="mb-3 flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-base font-semibold text-white">{g.patientName}</h2>
+                  <p className="text-xs text-slate-400">ID: {g.patientId || '—'} · {g.items.length} file(s)</p>
+                </div>
+                <span className="text-xs text-slate-500">Updated {g.latestMtime ? new Date(g.latestMtime).toLocaleString() : '—'}</span>
+              </header>
+              <ul className="space-y-2">
+                {g.items.map((f, i) => (
+                  <li key={i} className="flex items-center justify-between gap-3">
+                    <a href={`${API_BASE}${f.url}`} target="_blank" rel="noreferrer" className="flex-1 truncate text-sm text-cyan-300 hover:underline">
+                      {f.filename}
+                    </a>
+                    <span className="text-xs text-slate-500">{new Date(f.mtime).toLocaleDateString()} · {(f.size / 1024).toFixed(1)} KB</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
           ))}
         </div>
       </div>

@@ -40,13 +40,23 @@ export function startLocalApiServer() {
   const activeTokens = new Map(); // token -> username
 
   app.post('/api/login', (req, res) => {
-    const { username, password } = req.body || {};
+    let { username, password } = req.body || {};
     if (!username || !password) return res.status(400).json({ error: 'username and password required' });
+    username = String(username).trim();
+    password = String(password).trim();
     const users = readUsers();
-    const user = users[username];
-    if (!user || user.password !== password) return res.status(401).json({ error: 'invalid credentials' });
+    const lookup = Object.keys(users).reduce((acc, k) => {
+      acc[k.toLowerCase()] = users[k];
+      return acc;
+    }, {});
+    const user = lookup[username.toLowerCase()];
+    if (!user || String(user.password) !== password) {
+      console.warn(`[local-api] login failed for username='${username}'`);
+      return res.status(401).json({ error: 'invalid credentials' });
+    }
     const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
     activeTokens.set(token, username);
+    console.log(`[local-api] login ok for '${username}'`);
     res.json({ token, username });
   });
 
