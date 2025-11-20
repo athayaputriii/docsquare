@@ -25,6 +25,10 @@ export const FIREBASE_DATABASE_URL = process.env.FIREBASE_DATABASE_URL;
 export const TEMP_DIR = process.env.TEMP_DIR || 'data/audio';
 export const REPORT_DIR = process.env.REPORT_DIR || 'data/reports';
 export const TRANSCRIPT_DIR = process.env.TRANSCRIPT_DIR || 'data/transcripts';
+export const DB_DIR = process.env.DB_DIR || 'data/db';
+export const LOCAL_API_PORT = parseInt(process.env.LOCAL_API_PORT || '3001', 10);
+export const ENABLE_LOCAL_API = (process.env.ENABLE_LOCAL_API || 'true') === 'true';
+export const CHROME_PATH = process.env.CHROME_PATH; // optional override for puppeteer executable
 
 export const FIREBASE_CREDENTIALS_PRESENT =
   FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && FIREBASE_PRIVATE_KEY ? true : false;

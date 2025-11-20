@@ -5,7 +5,8 @@ import qrcode from 'qrcode-terminal';
 import fs from 'fs';
 import path from 'path';
 
-import { TEMP_DIR, REPORT_DIR, TRANSCRIPT_DIR } from './config.js';
+import { TEMP_DIR, REPORT_DIR, TRANSCRIPT_DIR, ENABLE_LOCAL_API, CHROME_PATH } from './config.js';
+import { startLocalApiServer } from './localApiServer.js';
 import { transcribeAudio } from './speechToText.js';
 import { generateMedicalReport } from './langchainPipeline.js';
 import { saveTidyDocx } from './docxRenderer.js';
@@ -62,10 +63,44 @@ function _parse_patient_info(text) {
 
 // --- WA Bot Setup ---
 console.log('Starting client...');
+
+// Resolve browser executable automatically (Chrome/Edge on Windows)
+function resolveBrowserExecutable() {
+  const candidates = [];
+  if (CHROME_PATH) candidates.push(CHROME_PATH);
+  if (process.platform === 'win32') {
+    const programFiles = process.env['ProgramFiles'] || 'C\\\\Program Files';
+    const programFilesX86 = process.env['ProgramFiles(x86)'] || 'C\\\\Program Files (x86)';
+    const localApp = process.env['LOCALAPPDATA'] || '';
+
+    candidates.push(
+      `${programFiles}\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe`,
+      `${programFilesX86}\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe`,
+      `${programFiles}\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe`,
+      `${programFilesX86}\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe`,
+      localApp ? `${localApp}\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe` : null,
+    );
+  }
+  const exe = candidates.filter(Boolean).find((p) => {
+    try { return fs.existsSync(p); } catch { return false; }
+  });
+  if (!exe) {
+    console.warn('[wwebjs] No browser found automatically. Set CHROME_PATH in .env');
+  } else {
+    console.log(`[wwebjs] Using browser: ${exe}`);
+  }
+  return exe || undefined;
+}
+const EXECUTABLE = resolveBrowserExecutable();
+if (ENABLE_LOCAL_API) {
+  // Fire up a small local API for the dashboard
+  startLocalApiServer();
+}
 const client = new Client({
-  authStrategy: new LocalAuth(), // Saves session to .wwebjs_auth/
+  authStrategy: new LocalAuth({ clientId: 'fresh-1', dataPath: 'data/wwebjs_auth' }), // New session path
   puppeteer: {
     headless: true,
+    executablePath: EXECUTABLE,
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   },
 });
@@ -77,6 +112,26 @@ client.on('qr', (qr) => {
 
 client.on('ready', () => {
   console.log('Client is ready!');
+});
+
+client.on('loading_screen', (percent, message) => {
+  console.log(`[wwebjs] loading: ${percent}% - ${message}`);
+});
+
+client.on('authenticated', () => {
+  console.log('[wwebjs] authenticated');
+});
+
+client.on('auth_failure', (m) => {
+  console.error('[wwebjs] AUTH FAILURE:', m);
+});
+
+client.on('change_state', (state) => {
+  console.log('[wwebjs] state:', state);
+});
+
+client.on('disconnected', (reason) => {
+  console.warn('[wwebjs] disconnected:', reason);
 });
 
 client.on('message', async (message) => {
@@ -199,7 +254,15 @@ client.on('message', async (message) => {
       const report_text = await generateMedicalReport(transcript_text);
       
       // 4. Save DOCX
-      const report_docx_path = path.join(REPORT_DIR, `${base}.docx`);
+      // Save report into a per-patient folder: "<Name> - <ID>"
+      const sanitize = (s) => String(s || '')
+        .replace(/[\\/:*?"<>|]/g, '-')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const patientDirName = `${sanitize(patient.name)} - ${sanitize(patient.id)}`;
+      const patientReportDir = path.join(REPORT_DIR, patientDirName);
+      try { fs.mkdirSync(patientReportDir, { recursive: true }); } catch { /* noop */ }
+      const report_docx_path = path.join(patientReportDir, `${base}.docx`);
       
       await saveTidyDocx({
           reportText: report_text,

@@ -14,6 +14,12 @@ export function useFirebaseAuth(): AuthState {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if ((process.env.NEXT_PUBLIC_SKIP_AUTH || 'true') === 'true') {
+      // Bypass auth in local mode
+      setUser({} as any);
+      setLoading(false);
+      return;
+    }
     const auth = getFirebaseAuth();
     if (!auth) {
       setLoading(false);
