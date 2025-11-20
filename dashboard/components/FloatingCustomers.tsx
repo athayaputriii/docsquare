@@ -29,14 +29,6 @@ const floatingCustomersData = [
         logo: BriteMank,
         label: 'BriteMank'
     },
-    // {
-    //     logo: Limerantz,
-    //     label: 'Limerantz'
-    // },
-    // {
-    //     logo: Streamlinz,
-    //     label: 'Streamlinz'
-    // }
 ];
 
 type FloatingCustomersProps = {
